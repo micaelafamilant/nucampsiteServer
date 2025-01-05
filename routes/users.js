@@ -2,12 +2,14 @@ const express = require("express");
 const User = require("../models/user");
 const passport = require("passport");
 const authenticate = require("../authenticate");
+const cors = require("./cors");
 
 const router = express.Router();
 
 /* GET users listing. */
 router.get(
   "/",
+  cors.corsWithOptions,
   authenticate.verifyUser,
   authenticate.verifyAdmin,
   (req, res, next) => {
@@ -21,7 +23,7 @@ router.get(
   }
 );
 
-router.post("/signup", (req, res) => {
+router.post("/signup", cors.corsWithOptions, (req, res) => {
   const user = new User({ username: req.body.username });
 
   User.register(user, req.body.password)
@@ -51,20 +53,30 @@ router.post("/signup", (req, res) => {
 
 router.post(
   "/login",
+  cors.corsWithOptions,
+  (req, res, next) => {
+    console.log("Login Request Body: ", req.body); // Log incoming data
+    next();
+  },
   passport.authenticate("local", { session: false }),
   (req, res) => {
+    console.log("Authenticated User: ", req.user); // Confirm authentication
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     const token = authenticate.getToken({ _id: req.user._id });
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.json({
       success: true,
       token: token,
-      status: "You are successfully logged in!",
+      status: "You are successfully logged in!", // Send token to client
     });
   }
 );
 
-router.get("/logout", (req, res, next) => {
+router.get("/logout", cors.corsWithOptions, (req, res, next) => {
   if (req.session) {
     req.session.destroy();
     res.clearCookie("session-id");
